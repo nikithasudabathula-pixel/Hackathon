@@ -25,7 +25,8 @@
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.13.0",
     "tailwindcss": "^4.1.18",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "white": "^1.0.0"
   },
   "type": "module"
 }
