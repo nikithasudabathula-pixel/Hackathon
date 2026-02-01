@@ -13,11 +13,14 @@ const Dashboard = () => {
     // Registration State
     const [formData, setFormData] = useState({
         landId: '',
-        documentHash: '',
-        datahavenId: '',
-        ownerAddress: ''
+        ownerAddress: '',
+        ownerDetails: '',
+        documentHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+        datahavenId: ''
     });
     const [isLoading, setIsLoading] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const [selectedFile, setSelectedFile] = useState(null);
 
     // Search State
     const [searchId, setSearchId] = useState('');
@@ -39,6 +42,58 @@ const Dashboard = () => {
         };
         fetchOwner();
     }, []);
+
+    const uploadToPinata = async () => {
+        if (!selectedFile) {
+            alert("Please select a file first");
+            return;
+        }
+
+        try {
+            setUploading(true);
+
+            // Calculate File Hash
+            const buffer = await selectedFile.arrayBuffer();
+            const hash = ethers.keccak256(new Uint8Array(buffer));
+
+            const data = new FormData();
+            data.append('file', selectedFile);
+
+            // REPLACE WITH YOUR PINATA API KEYS
+            const pinataApiKey = 'da44c26ff882010951cc';
+            const pinataSecretApiKey = '0284b74fe502be4509440a00ebaeef976946b2246b41959c18c23c0bbe0e0476';
+
+            const response = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+                method: 'POST',
+                headers: {
+                    'pinata_api_key': pinataApiKey,
+                    'pinata_secret_api_key': pinataSecretApiKey,
+                },
+                body: data
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to upload to Pinata");
+            }
+
+            const result = await response.json();
+            const cid = "0x" + result.IpfsHash;
+
+            setFormData(prev => ({
+                ...prev,
+                datahavenId: cid,
+                documentHash: hash
+            }));
+
+            alert(`Document uploaded! CID: ${cid}`);
+
+        } catch (error) {
+            console.error("Upload Error:", error);
+            alert("Error uploading document: " + error.message);
+        } finally {
+            setUploading(false);
+        }
+    };
 
     const handleRegister = async (e) => {
         e.preventDefault();
@@ -64,7 +119,14 @@ const Dashboard = () => {
             );
             await tx.wait();
             alert("Land Registered Successfully!");
-            setFormData({ landId: '', documentHash: '', datahavenId: '', ownerAddress: '' });
+            setFormData({
+                landId: '',
+                ownerAddress: '',
+                ownerDetails: '',
+                documentHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+                datahavenId: ''
+            });
+            setSelectedFile(null);
         } catch (error) {
             console.error(error);
             alert("Registration failed: " + (error.reason || error.message));
@@ -137,32 +199,63 @@ const Dashboard = () => {
                                 <label className="block text-gray-700 font-semibold mb-2">Owner Address</label>
                                 <input
                                     type="text"
-                                    placeholder="0x..."
+                                    placeholder="0x... (Leave empty to use your wallet)"
                                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                     value={formData.ownerAddress}
                                     onChange={(e) => setFormData({ ...formData, ownerAddress: e.target.value })}
-                                    required
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-700 font-semibold mb-2">Document Hash / Content</label>
+                                <label className="block text-gray-700 font-semibold mb-2">Owner Details (Optional)</label>
                                 <input
                                     type="text"
-                                    placeholder="Verification Hash or String"
+                                    placeholder="Name, Address, etc."
                                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                    value={formData.documentHash}
-                                    onChange={(e) => setFormData({ ...formData, documentHash: e.target.value })}
-                                    required
+                                    value={formData.ownerDetails}
+                                    onChange={(e) => setFormData({ ...formData, ownerDetails: e.target.value })}
                                 />
                             </div>
+
                             <div>
-                                <label className="block text-gray-700 font-semibold mb-2">Data Haven ID</label>
+                                <label className="block text-gray-700 font-semibold mb-2">Document (PNG Upload)</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="file"
+                                        accept="image/png"
+                                        className="w-full p-2 border border-gray-300 rounded-lg"
+                                        onChange={(e) => setSelectedFile(e.target.files[0])}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={uploadToPinata}
+                                        disabled={uploading || !selectedFile}
+                                        className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-700 disabled:opacity-50"
+                                    >
+                                        {uploading ? '...' : 'Upload'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-gray-700 font-semibold mb-2">CID (Auto-filled)</label>
                                 <input
                                     type="text"
-                                    placeholder="IPFS CID or ID"
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                    placeholder="IPFS CID"
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-gray-100"
                                     value={formData.datahavenId}
                                     onChange={(e) => setFormData({ ...formData, datahavenId: e.target.value })}
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-gray-700 font-semibold mb-2">Document Hash (Auto-filled)</label>
+                                <input
+                                    type="text"
+                                    placeholder="SHA-256 / Keccak-256 Hash"
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-gray-100"
+                                    value={formData.documentHash}
+                                    onChange={(e) => setFormData({ ...formData, documentHash: e.target.value })}
                                     required
                                 />
                             </div>
