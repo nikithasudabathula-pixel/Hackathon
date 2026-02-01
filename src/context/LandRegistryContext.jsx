@@ -12,6 +12,21 @@ export const LandRegistryProvider = ({ children }) => {
   const [currentAccount, setCurrentAccount] = useState('');
   const [contract, setContract] = useState(null);
   const [loading, setLoading] = useState(false);
+  // NEW: State to hold the dynamic contract address
+  const [currentContractAddress, setContractAddressState] = useState(contractAddress);
+
+  useEffect(() => {
+    // Load from localStorage on mount
+    const storedAddress = localStorage.getItem('landRegistryContractAddress');
+    if (storedAddress) {
+      setContractAddressState(storedAddress);
+    }
+  }, []);
+
+  const updateContractAddress = (newAddress) => {
+    setContractAddressState(newAddress);
+    localStorage.setItem('landRegistryContractAddress', newAddress);
+  };
 
   // Check if wallet is connected
   const checkWalletConnection = async () => {
@@ -46,7 +61,9 @@ export const LandRegistryProvider = ({ children }) => {
     if (ethereum) {
       const provider = new ethers.BrowserProvider(ethereum);
       const signer = await provider.getSigner();
-      const landRegistryContract = new ethers.Contract(contractAddress, contractABI, signer);
+      // Always read the freshest address from localStorage to avoid stale closures
+      const freshAddress = localStorage.getItem('landRegistryContractAddress') || contractAddress;
+      const landRegistryContract = new ethers.Contract(freshAddress, contractABI, signer);
       return landRegistryContract;
     }
     return null;
@@ -58,17 +75,17 @@ export const LandRegistryProvider = ({ children }) => {
       if (!ethereum) return alert('Please install MetaMask');
       const provider = new ethers.BrowserProvider(ethereum);
       const signer = await provider.getSigner();
-      
+
       // Initializing factory with ABI, Bytecode, and Signer
       const factory = new ethers.ContractFactory(contractABI, contractBytecode, signer);
-      
+
       console.log("Deploying contract...");
       // For legacy/standard compatibility, we can optionally pass gasLimit if needed, but usually auto-estimation works.
       const contract = await factory.deploy();
-      
+
       console.log("Waiting for deployment...", contract);
       await contract.waitForDeployment();
-      
+
       const address = await contract.getAddress();
       console.log("Deployed at:", address);
       return address;
@@ -91,6 +108,8 @@ export const LandRegistryProvider = ({ children }) => {
         deployContract,
         loading,
         setLoading,
+        currentContractAddress, // Export current address
+        updateContractAddress,  // Export updater function
       }}
     >
       {children}

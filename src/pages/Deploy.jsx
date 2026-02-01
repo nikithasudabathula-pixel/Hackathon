@@ -1,21 +1,29 @@
-import React, { useState, useContext } from 'react';
-import { LandRegistryContext } from '../context/LandRegistryContext';
-import { Rocket, CheckCircle, Copy } from 'lucide-react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useWeb3 } from '../context/Web3Context';
+import { Rocket, CheckCircle } from 'lucide-react';
 
 const Deploy = () => {
-    const { deployContract, currentAccount, connectWallet } = useContext(LandRegistryContext);
+    const { deployContract, account, connectWallet, updateContractAddress } = useWeb3();
+    const navigate = useNavigate();
     const [status, setStatus] = useState('idle'); // idle, deploying, success, error
     const [newAddress, setNewAddress] = useState('');
     const [errorMsg, setErrorMsg] = useState('');
 
     const handleDeploy = async () => {
-        if (!currentAccount) return alert("Connect Wallet First");
+        if (!account) return alert("Connect Wallet First");
         setStatus('deploying');
         setErrorMsg('');
         try {
             const address = await deployContract();
             setNewAddress(address);
+            updateContractAddress(address); // Save the new address
             setStatus('success');
+
+            // Auto-redirect to Add Officer after 2 seconds
+            setTimeout(() => {
+                navigate('/add-officer');
+            }, 2000);
         } catch (error) {
             console.error(error);
             setStatus('error');
@@ -23,46 +31,47 @@ const Deploy = () => {
         }
     };
 
-    if (!currentAccount) {
-         return (
-            <div className="flex flex-col items-center justify-center min-h-[80vh] pt-24">
-                 <h2 className="text-2xl font-bold mb-4">Please Connect Your Wallet to Deploy</h2>
-                 <button onClick={connectWallet} className="bg-blue-600 text-white px-6 py-2 rounded-full font-bold">
-                    Connect Wallet
-                 </button>
-            </div>
-        )
-    }
+    const handleCopy = () => {
+        navigator.clipboard.writeText(newAddress);
+        alert('Address copied!');
+    };
 
     return (
-        <div className="min-h-screen pt-24 px-4 bg-gray-50 flex flex-col items-center justify-center">
-            <div className="bg-white p-8 rounded-2xl shadow-xl max-w-lg w-full text-center border border-gray-100">
-                <div className="mb-6 flex justify-center">
-                    <div className="p-4 bg-blue-50 rounded-full">
-                        <Rocket size={48} className="text-blue-600" />
-                    </div>
+        <div className="pt-24 min-h-screen flex items-center justify-center px-4">
+            <div className="max-w-2xl w-full bg-white shadow-xl rounded-2xl p-10">
+                <div className="flex flex-col items-center mb-6">
+                    <Rocket size={48} className="text-blue-600 mb-4" />
+                    <h1 className="text-4xl font-bold text-gray-800">Deploy Contract</h1>
+                    <p className="text-gray-600 text-center mt-3">
+                        Deploy a new instance of the Land Registry smart contract to the blockchain.
+                        This will set you as the owner and administrator.
+                    </p>
                 </div>
-                
-                <h1 className="text-3xl font-bold text-gray-800 mb-4">Deploy Contract</h1>
-                <p className="text-gray-600 mb-8">
-                    Deploy a new instance of the Land Registry smart contract to the blockchain. 
-                    This will set you as the owner and administrator.
-                </p>
 
                 {status === 'idle' && (
-                    <button 
-                        onClick={handleDeploy}
-                        className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold text-lg hover:shadow-lg transition-all transform hover:scale-[1.02]"
-                    >
-                        Deploy to Sepolia
-                    </button>
+                    <div className="text-center">
+                        {!account ? (
+                            <button
+                                onClick={connectWallet}
+                                className="px-8 py-4 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition-colors"
+                            >
+                                Connect Wallet First
+                            </button>
+                        ) : (
+                            <button
+                                onClick={handleDeploy}
+                                className="px-8 py-4 bg-blue-600 text-white rounded-lg font-semibold text-lg hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg"
+                            >
+                                Deploy to Sepolia
+                            </button>
+                        )}
+                    </div>
                 )}
 
                 {status === 'deploying' && (
-                    <div className="flex flex-col items-center">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-                        <p className="text-blue-600 font-semibold animate-pulse">Confirming Transaction...</p>
-                        <p className="text-sm text-gray-500 mt-2">Please wait for block confirmation.</p>
+                    <div className="text-center animate-pulse">
+                        <div className="text-2xl font-bold text-blue-600 mb-4">Deploying...</div>
+                        <p className="text-gray-600">Please confirm the transaction in MetaMask and wait...</p>
                     </div>
                 )}
 
@@ -76,11 +85,11 @@ const Deploy = () => {
                             <p className="text-xs text-gray-500 mb-1 uppercase tracking-wider">Contract Address</p>
                             <p className="font-mono text-gray-800 font-bold">{newAddress}</p>
                         </div>
-                        <div className="p-4 bg-yellow-50 text-yellow-800 rounded-lg text-sm text-left mb-6 border border-yellow-100">
-    <strong>Important:</strong> Update <code className="bg-yellow-100 px-1 rounded">src/utils/contract.js</code> with this address to interact with your new registry.
-</div>
-                        <button 
-                            onClick={() => {setStatus('idle'); setNewAddress('');}}
+                        <div className="p-4 bg-green-50 text-green-800 rounded-lg text-sm text-center mb-6 border border-green-100">
+                            <strong>Success!</strong> Redirecting you to Add Officer page...
+                        </div>
+                        <button
+                            onClick={() => { setStatus('idle'); setNewAddress(''); }}
                             className="text-blue-600 hover:text-blue-700 font-semibold"
                         >
                             Deploy Another
@@ -89,12 +98,14 @@ const Deploy = () => {
                 )}
 
                 {status === 'error' && (
-                    <div className="text-red-500">
-                        <p className="font-bold mb-2">Error</p>
-                        <p className="text-sm bg-red-50 p-3 rounded border border-red-100">{errorMsg}</p>
-                        <button 
+                    <div className="text-center animate-fade-in-up">
+                        <div className="text-2xl font-bold text-red-600 mb-4">Deployment Failed</div>
+                        <p className="text-red-500 bg-red-50 p-4 rounded-lg border border-red-200 break-all mb-6">
+                            {errorMsg}
+                        </p>
+                        <button
                             onClick={() => setStatus('idle')}
-                            className="mt-4 text-gray-600 underline"
+                            className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
                         >
                             Try Again
                         </button>

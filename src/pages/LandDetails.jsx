@@ -1,11 +1,11 @@
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { LandRegistryContext } from '../context/LandRegistryContext';
+import { useWeb3 } from '../context/Web3Context';
 import { ShieldAlert, CheckCircle, User, FileText, Clock, AlertTriangle } from 'lucide-react';
 
 const LandDetails = () => {
     const { id } = useParams();
-    const { getContract, currentAccount, connectWallet } = useContext(LandRegistryContext);
+    const { getContract, account, connectWallet } = useWeb3();
     const [land, setLand] = useState(null);
     const [loading, setLoading] = useState(true);
     const [isOwner, setIsOwner] = useState(false);
@@ -21,10 +21,10 @@ const LandDetails = () => {
             try {
                 const contract = await getContract();
                 if (!contract) return;
-                
+
                 const landData = await contract.getLand(id);
                 // landData is array/struct: [owner, documentHash, Datahavenid, disputed, timestamp]
-                
+
                 // Formatted object
                 const formattedLand = {
                     id: id,
@@ -34,12 +34,12 @@ const LandDetails = () => {
                     disputed: landData[3],
                     timestamp: new Date(Number(landData[4]) * 1000).toLocaleString()
                 };
-                
+
                 setLand(formattedLand);
-                
-                if (currentAccount) {
-                    setIsOwner(currentAccount.toLowerCase() === formattedLand.owner.toLowerCase());
-                    const officerStatus = await contract.officers(currentAccount);
+
+                if (account) {
+                    setIsOwner(account.toLowerCase() === formattedLand.owner.toLowerCase());
+                    const officerStatus = await contract.officers(account);
                     setIsOfficer(officerStatus);
                 }
             } catch (error) {
@@ -51,16 +51,16 @@ const LandDetails = () => {
             }
         };
 
-        if (currentAccount) {
+        if (account) {
             fetchLandDetails();
         } else {
-             // If not connected, we still might want to try reading if we have a provider?
-             // Context uses BrowserProvider which needs wallet. 
-             // Ideally we should have a JsonRpcProvider fallback for read-only.
-             // For now, require connection.
-             setLoading(false);
+            // If not connected, we still might want to try reading if we have a provider?
+            // Context uses BrowserProvider which needs wallet. 
+            // Ideally we should have a JsonRpcProvider fallback for read-only.
+            // For now, require connection.
+            setLoading(false);
         }
-    }, [id, currentAccount, getContract]);
+    }, [id, account, getContract]);
 
 
     const handleTransfer = async (e) => {
@@ -81,7 +81,7 @@ const LandDetails = () => {
     };
 
     const handleRaiseDispute = async () => {
-        if(!disputeReason) return alert("Enter a reason");
+        if (!disputeReason) return alert("Enter a reason");
         setActionLoading(true);
         try {
             const contract = await getContract();
@@ -94,8 +94,8 @@ const LandDetails = () => {
             alert("Dispute raised!");
             window.location.reload();
         } catch (error) {
-             console.error(error);
-             alert("Failed to raise dispute: " + error.message);
+            console.error(error);
+            alert("Failed to raise dispute: " + error.message);
         } finally {
             setActionLoading(false);
         }
@@ -110,14 +110,14 @@ const LandDetails = () => {
             alert(`Dispute resolved as ${valid ? 'Valid' : 'Invalid'}`);
             window.location.reload();
         } catch (error) {
-             console.error(error);
-             alert("Failed to resolve: " + error.message);
+            console.error(error);
+            alert("Failed to resolve: " + error.message);
         } finally {
             setActionLoading(false);
         }
     };
 
-    if (!currentAccount) return <div className="pt-24 text-center"><button onClick={connectWallet} className="bg-blue-600 text-white px-6 py-2 rounded-full">Connect Wallet to View</button></div>;
+    if (!account) return <div className="pt-24 text-center"><button onClick={connectWallet} className="bg-blue-600 text-white px-6 py-2 rounded-full">Connect Wallet to View</button></div>;
     if (loading) return <div className="pt-24 text-center">Loading Land Details...</div>;
     if (!land) return <div className="pt-24 text-center text-red-500 font-bold">Land Not Found (ID: {id})</div>;
 
@@ -126,26 +126,26 @@ const LandDetails = () => {
             <div className="w-full max-w-4xl bg-white p-8 rounded-2xl shadow-xl border border-gray-100 relative overflow-hidden">
                 {land.disputed && (
                     <div className="absolute top-0 left-0 w-full bg-red-500 text-white py-2 text-center font-bold flex items-center justify-center gap-2">
-                        <AlertTriangle size={20}/> THIS LAND IS CURRENTLY DISPUTED
+                        <AlertTriangle size={20} /> THIS LAND IS CURRENTLY DISPUTED
                     </div>
                 )}
-                
+
                 <div className="mt-8 grid md:grid-cols-2 gap-10">
                     <div>
                         <h1 className="text-3xl font-extrabold text-blue-900 mb-6 flex items-center gap-3">
-                            <FileText size={32}/> Land ID: {land.id}
+                            <FileText size={32} /> Land ID: {land.id}
                         </h1>
-                        
+
                         <div className="space-y-4">
-                            <DetailRow icon={<User size={20}/>} label="Owner" value={land.owner} />
-                            <DetailRow icon={<ShieldAlert size={20}/>} label="DataHaven ID" value={land.datahavenId} />
-                            <DetailRow icon={<FileText size={20}/>} label="Document Hash" value={land.documentHash.slice(0, 20) + "..."} fullValue={land.documentHash}/>
-                            <DetailRow icon={<Clock size={20}/>} label="Registered" value={land.timestamp} />
+                            <DetailRow icon={<User size={20} />} label="Owner" value={land.owner} />
+                            <DetailRow icon={<ShieldAlert size={20} />} label="DataHaven ID" value={land.datahavenId} />
+                            <DetailRow icon={<FileText size={20} />} label="Document Hash" value={land.documentHash.slice(0, 20) + "..."} fullValue={land.documentHash} />
+                            <DetailRow icon={<Clock size={20} />} label="Registered" value={land.timestamp} />
                             <div className="flex items-center gap-2 mt-4">
                                 <span className="font-bold text-gray-700">Status:</span>
-                                {land.disputed ? 
-                                    <span className="text-red-600 font-bold flex items-center gap-1"><AlertTriangle size={16}/> Disputed</span> : 
-                                    <span className="text-green-600 font-bold flex items-center gap-1"><CheckCircle size={16}/> Clear</span>
+                                {land.disputed ?
+                                    <span className="text-red-600 font-bold flex items-center gap-1"><AlertTriangle size={16} /> Disputed</span> :
+                                    <span className="text-green-600 font-bold flex items-center gap-1"><CheckCircle size={16} /> Clear</span>
                                 }
                             </div>
                         </div>
@@ -156,9 +156,9 @@ const LandDetails = () => {
                             <div>
                                 <h3 className="text-xl font-bold mb-4 text-gray-800">Transfer Ownership</h3>
                                 <form onSubmit={handleTransfer} className="space-y-3">
-                                    <input className="w-full p-2 border rounded" placeholder="New Owner Address" value={transferData.newOwner} onChange={e => setTransferData({...transferData, newOwner: e.target.value})} required />
-                                    <input className="w-full p-2 border rounded" placeholder="New Document Hash" value={transferData.newHash} onChange={e => setTransferData({...transferData, newHash: e.target.value})} required />
-                                    <input className="w-full p-2 border rounded" placeholder="New CID" value={transferData.newCID} onChange={e => setTransferData({...transferData, newCID: e.target.value})} required />
+                                    <input className="w-full p-2 border rounded" placeholder="New Owner Address" value={transferData.newOwner} onChange={e => setTransferData({ ...transferData, newOwner: e.target.value })} required />
+                                    <input className="w-full p-2 border rounded" placeholder="New Document Hash" value={transferData.newHash} onChange={e => setTransferData({ ...transferData, newHash: e.target.value })} required />
+                                    <input className="w-full p-2 border rounded" placeholder="New CID" value={transferData.newCID} onChange={e => setTransferData({ ...transferData, newCID: e.target.value })} required />
                                     <button disabled={actionLoading} type="submit" className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 font-bold">
                                         {actionLoading ? 'Transferring...' : 'Transfer Land'}
                                     </button>
@@ -177,7 +177,7 @@ const LandDetails = () => {
                         )}
 
                         {isOfficer && land.disputed && (
-                             <div>
+                            <div>
                                 <h3 className="text-xl font-bold mb-4 text-gray-800">Resolve Dispute</h3>
                                 <div className="flex gap-4">
                                     <button disabled={actionLoading} onClick={() => handleResolveDispute(true)} className="flex-1 bg-green-500 text-white py-2 rounded hover:bg-green-600 font-bold">
@@ -189,7 +189,7 @@ const LandDetails = () => {
                                 </div>
                             </div>
                         )}
-                        
+
                         {land.disputed && !isOfficer && (
                             <div className="text-center text-gray-500 italic mt-4">
                                 Dispute resolution in progress.

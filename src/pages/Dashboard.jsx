@@ -1,11 +1,11 @@
-import React, { useState, useContext } from 'react';
-import { LandRegistryContext } from '../context/LandRegistryContext';
+import React, { useState } from 'react';
+import { useWeb3 } from '../context/Web3Context';
 import { useNavigate } from 'react-router-dom';
 import { ethers } from 'ethers';
 import { PlusCircle, Search, Map } from 'lucide-react';
 
 const Dashboard = () => {
-    const { getContract, currentAccount, connectWallet } = useContext(LandRegistryContext);
+    const { getContract, account, connectWallet } = useWeb3();
     const navigate = useNavigate();
 
     // Registration State
@@ -56,7 +56,7 @@ const Dashboard = () => {
             }
 
             const result = await response.json();
-            const cid = "0x" + result.IpfsHash;
+            const cid = result.IpfsHash; // IPFS CID without "0x" prefix
 
             setFormData(prev => ({
                 ...prev,
@@ -77,7 +77,7 @@ const Dashboard = () => {
     const handleRegister = async (e) => {
         e.preventDefault();
         try {
-            if (!currentAccount) return alert("Please connect wallet");
+            if (!account) return alert("Please connect wallet");
             const contract = await getContract();
             if (!contract) return;
 
@@ -90,19 +90,59 @@ const Dashboard = () => {
                 formattedHash = ethers.id(documentHash); // Keccak256 hash of string
             }
 
+            // Detailed logging
+            console.log("=== REGISTRATION DEBUG ===");
+            console.log("Land ID:", landId, "Type:", typeof landId);
+            console.log("Owner Address:", account);
+            console.log("Document Hash:", formattedHash);
+            console.log("DataHaven ID:", datahavenId, "Length:", datahavenId.length);
+            console.log("Contract Address:", await contract.getAddress());
+
+            // Check if user is officer
+            const isOfficer = await contract.officers(account);
+            console.log("Is Officer?", isOfficer);
+
+            if (!isOfficer) {
+                alert("You are not an officer! Please add yourself as an officer first.");
+                setIsLoading(false);
+                return;
+            }
+
+            console.log("Attempting to register land...");
+
             const tx = await contract.registerLand(
                 landId,
-                currentAccount,
+                account,
                 formattedHash,
-                datahavenId
+                datahavenId,
+                { gasLimit: 500000 } // Explicitly set gas limit
             );
+
+            console.log("Transaction sent:", tx.hash);
             await tx.wait();
+            console.log("Transaction confirmed!");
+
             alert("Land Registered Successfully!");
             setFormData({ landId: '', ownerDetails: '', documentHash: '0x0000000000000000000000000000000000000000000000000000000000000000', datahavenId: '' });
             setSelectedFile(null);
         } catch (error) {
-            console.error(error);
-            alert("Registration failed: " + (error.reason || error.message));
+            console.error("=== REGISTRATION ERROR ===");
+            console.error("Full error:", error);
+            console.error("Error message:", error.message);
+            console.error("Error reason:", error.reason);
+            console.error("Error code:", error.code);
+            console.error("Error data:", error.data);
+
+            let errorMessage = "Registration failed: ";
+            if (error.reason) {
+                errorMessage += error.reason;
+            } else if (error.message) {
+                errorMessage += error.message;
+            } else {
+                errorMessage += "Unknown error - check console for details";
+            }
+
+            alert(errorMessage);
         } finally {
             setIsLoading(false);
         }
@@ -115,7 +155,7 @@ const Dashboard = () => {
         }
     };
 
-    if (!currentAccount) {
+    if (!account) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[80vh]">
                 <h2 className="text-2xl font-bold mb-4">Please Connect Your Wallet</h2>
@@ -137,7 +177,7 @@ const Dashboard = () => {
                         <h2 className="text-2xl font-bold text-gray-800">Register New Land</h2>
                     </div>
 
-                    <div className="flex flex-col gap-4">
+                    <form onSubmit={handleRegister} className="flex flex-col gap-4">
                         <div>
                             <label className="block text-gray-700 font-semibold mb-2">Land ID (Numeric)</label>
                             <input
@@ -146,11 +186,12 @@ const Dashboard = () => {
                                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                 value={formData.landId}
                                 onChange={(e) => setFormData({ ...formData, landId: e.target.value })}
+                                required
                             />
                         </div>
 
                         <div>
-                            <label className="block text-gray-700 font-semibold mb-2">Owner Details</label>
+                            <label className="block text-gray-700 font-semibold mb-2">Owner Details (Optional)</label>
                             <input
                                 type="text"
                                 placeholder="Name, Address, etc."
@@ -161,11 +202,19 @@ const Dashboard = () => {
                         </div>
 
                         <div>
+<<<<<<< HEAD
+                            <label className="block text-gray-700 font-semibold mb-2">Document Upload (PNG/PDF)</label>
+                            <div className="flex gap-2">
+                                <input
+                                    type="file"
+                                    accept="image/png,application/pdf"
+=======
                             <label className="block text-gray-700 font-semibold mb-2">Document (PNG/JPEG Upload)</label>
                             <div className="flex gap-2">
                                 <input
                                     type="file"
                                     accept="image/png, image/jpeg, image/jpg"
+>>>>>>> 9565df375743698e9d91ec802b299d8f9534a8b0
                                     className="w-full p-2 border border-gray-300 rounded-lg"
                                     onChange={(e) => setSelectedFile(e.target.files[0])}
                                 />
@@ -173,43 +222,47 @@ const Dashboard = () => {
                                     type="button"
                                     onClick={uploadToPinata}
                                     disabled={uploading || !selectedFile}
-                                    className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-700 disabled:opacity-50"
+                                    className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-700 disabled:opacity-50 transition-all"
                                 >
-                                    {uploading ? '...' : 'Upload'}
+                                    {uploading ? '⏳' : '📤 Upload'}
                                 </button>
                             </div>
+                            <p className="text-xs text-gray-500 mt-1">Upload to IPFS via Pinata</p>
                         </div>
 
                         <div>
-                            <label className="block text-gray-700 font-semibold mb-2">CID (Auto-filled)</label>
+                            <label className="block text-gray-700 font-semibold mb-2">IPFS CID (Editable)</label>
                             <input
                                 type="text"
-                                placeholder="IPFS CID"
-                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-gray-100"
+                                placeholder="Will be filled after upload"
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                 value={formData.datahavenId}
                                 onChange={(e) => setFormData({ ...formData, datahavenId: e.target.value })}
                             />
+                            <p className="text-xs text-gray-500 mt-1">Auto-filled after upload, but you can edit it</p>
                         </div>
 
                         <div>
                             <label className="block text-gray-700 font-semibold mb-2">Document Hash (Auto-filled)</label>
                             <input
                                 type="text"
-                                placeholder="SHA-256 / Keccak-256 Hash"
+                                placeholder="Keccak-256 Hash"
                                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-gray-100"
                                 value={formData.documentHash}
                                 onChange={(e) => setFormData({ ...formData, documentHash: e.target.value })}
+                                readOnly
                             />
+                            <p className="text-xs text-gray-500 mt-1">Generated automatically from uploaded file</p>
                         </div>
 
                         <button
-                            onClick={handleRegister}
+                            type="submit"
                             disabled={isLoading}
                             className="mt-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-xl font-bold hover:shadow-lg transition-all disabled:opacity-50"
                         >
-                            {isLoading ? 'Processing...' : 'Register Land'}
+                            {isLoading ? 'Processing...' : '📝 Register Land'}
                         </button>
-                    </div>
+                    </form>
                 </div>
 
                 {/* Search Land Section */}
@@ -228,7 +281,7 @@ const Dashboard = () => {
                                 onChange={(e) => setSearchId(e.target.value)}
                                 required
                             />
-                            <button type="submit" className="bg-indigo-600 text-white p-3 rounded-lg hover:bg-indigo-700">
+                            <button type="submit" className="bg-indigo-600 text-white p-3 rounded-lg hover:bg-indigo-700 transition-all">
                                 <Search />
                             </button>
                         </form>
