@@ -1,0 +1,53 @@
+# Hackathon Project Prompt: Decentralized Land Registry
+
+**Role**: Senior Blockchain Full-Stack Developer
+**Objective**: Build a decentralized application (DApp) for Land Registry and Management using
+
+## Project Overview
+Create `DataHaven` (or `LandRegistry`), a blockchain-based platform that prevents land fraud b
+
+## Core Features & User Stories
+
+### 1. Authentication & Roles
+- **Wallet Connection**: Users must connect their MetaMask wallet to interact.
+- **Admin (Contract Owner)**: Can add/remove Officers.
+- **Officers**: Authorized personnel who can Register Land, Approve Transfers, and Resolve Dis
+- **Public Users**: Can Search Land, View Details, and Raise Disputes.
+
+### 2. Land Management (Officer Only)
+- **Register Land**: Input Land ID, Owner Address, Document Hash (IPFS/DataHaven ID), and othe
+- **Transfer Ownership**: Update ownership records upon verification of both parties' consent.
+
+### 3. Public Verification
+- **Search**: Anyone can look up a Land ID to see its history, current owner, and dispute stat
+- **Transparency**: Display all events (Registration, Transfer, Disputes) in real-time or via 
+
+### 4. Dispute Mechanism
+- **Raise Dispute**: A user can stake a small amount of ETH (e.g., 0.01 ETH) to mark a land as
+- **Resolve Dispute**: Officers review the claim.
+  - *Valid Claim*: The land remains disputed/corrected, and the staker gets their ETH back.
+  - *Invalid Claim*: The dispute is cleared, and the stake is forfeited.
+
+## Technology Stack
+
+### Smart Contract / Backend
+- **Language**: Solidity (0.8.x)
+- **Framework**: Hardhat
+- **Network**: Localhost / Sepolia Testnet
+- **Key Concepts**: `struct Land`, `mapping(id => Land)`, `modifier onlyOfficer`, `payable` fu
+
+### Frontend
+- **Framework**: React.js (Vite)
+- **Styling**: Tailwind CSS (Modern, clean, "GovTech" aesthetic but premium).
+- **Web3 Integration**: `ethers.js` (v6) or `web3.js`.
+- **State Management**: React Context API (`LandRegistryContext`).
+- **Icons**: Lucide-React.
+
+## Design Guidelines
+- **Theme**: Trustworthy Blue/Indigo palette, Clean Whites, Stark Alerts (Red for Disputes, Gr
+- **UX**: Simple forms for Officers, clear "Connect Wallet" CTA, responsive dashboard.
+
+## Deliverables
+1. **Solidity Contract**: Validated and deployed.
+2. **Frontend Interface**: Fully interacting with the contract.
+3. **Demo**: Walkthrough showing a full lifecycle (Register -> Search -> Dispute -> Resolve).
