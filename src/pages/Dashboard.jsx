@@ -105,6 +105,29 @@ const Dashboard = () => {
             setIsLoading(true);
             const { landId, documentHash, datahavenId, ownerAddress } = formData;
 
+            // Validate owner address if provided
+            if (ownerAddress && !ethers.isAddress(ownerAddress)) {
+                alert("Invalid owner address format. Please enter a valid Ethereum address (0x...) or leave empty to use your wallet address.");
+                setIsLoading(false);
+                return;
+            }
+
+
+
+            // Check if land already exists
+            try {
+                const existingLand = await contract.getLand(landId);
+                // If owner is not zero address, land already exists
+                if (existingLand[0] !== '0x0000000000000000000000000000000000000000') {
+                    alert(`Land ID ${landId} is already registered to ${existingLand[0]}`);
+                    setIsLoading(false);
+                    return;
+                }
+            } catch (checkError) {
+                // If getLand reverts, the land doesn't exist yet, which is what we want
+                console.log("Land doesn't exist yet - proceeding with registration");
+            }
+
             // Ensure bytes32 format for hash
             let formattedHash = documentHash;
             if (!documentHash.startsWith('0x')) {
@@ -129,7 +152,13 @@ const Dashboard = () => {
             setSelectedFile(null);
         } catch (error) {
             console.error(error);
-            alert("Registration failed: " + (error.reason || error.message));
+            let errorMessage = "Registration failed: ";
+            if (error.message.includes("missing revert data") || error.message.includes("execution reverted")) {
+                errorMessage += "You don't have permission to register land. Only the contract owner or authorized officers can register new land parcels. Please contact an administrator.";
+            } else {
+                errorMessage += (error.reason || error.message);
+            }
+            alert(errorMessage);
         } finally {
             setIsLoading(false);
         }
@@ -206,14 +235,15 @@ const Dashboard = () => {
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-700 font-semibold mb-2">Owner Details (Optional)</label>
+                                <label className="block text-gray-700 font-semibold mb-2">Location/Details (Optional - not stored on chain)</label>
                                 <input
                                     type="text"
-                                    placeholder="Name, Address, etc."
+                                    placeholder="e.g., New York, USA (for your reference only)"
                                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                     value={formData.ownerDetails}
                                     onChange={(e) => setFormData({ ...formData, ownerDetails: e.target.value })}
                                 />
+                                <p className="text-xs text-gray-500 mt-1">Note: This field is for display only and is not saved to the blockchain.</p>
                             </div>
 
                             <div>
