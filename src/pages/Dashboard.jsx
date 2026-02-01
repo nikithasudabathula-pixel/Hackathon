@@ -11,13 +11,68 @@ const Dashboard = () => {
     // Registration State
     const [formData, setFormData] = useState({
         landId: '',
-        documentHash: '',
+        ownerDetails: '',
+        documentHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
         datahavenId: ''
     });
     const [isLoading, setIsLoading] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const [selectedFile, setSelectedFile] = useState(null);
 
     // Search State
     const [searchId, setSearchId] = useState('');
+
+    const uploadToPinata = async () => {
+        if (!selectedFile) {
+            alert("Please select a file first");
+            return;
+        }
+
+        try {
+            setUploading(true);
+
+            // Calculate File Hash
+            const buffer = await selectedFile.arrayBuffer();
+            const hash = ethers.keccak256(new Uint8Array(buffer));
+
+            const data = new FormData();
+            data.append('file', selectedFile);
+
+            // REPLACE WITH YOUR PINATA API KEYS
+            const pinataApiKey = 'da44c26ff882010951cc';
+            const pinataSecretApiKey = '0284b74fe502be4509440a00ebaeef976946b2246b41959c18c23c0bbe0e0476';
+
+            const response = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+                method: 'POST',
+                headers: {
+                    'pinata_api_key': pinataApiKey,
+                    'pinata_secret_api_key': pinataSecretApiKey,
+                },
+                body: data
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to upload to Pinata");
+            }
+
+            const result = await response.json();
+            const cid = "0x" + result.IpfsHash;
+
+            setFormData(prev => ({
+                ...prev,
+                datahavenId: cid,
+                documentHash: hash
+            }));
+
+            alert(`Document uploaded! CID: ${cid}`);
+
+        } catch (error) {
+            console.error("Upload Error:", error);
+            alert("Error uploading document: " + error.message);
+        } finally {
+            setUploading(false);
+        }
+    };
 
     const handleRegister = async (e) => {
         e.preventDefault();
@@ -30,9 +85,6 @@ const Dashboard = () => {
             const { landId, documentHash, datahavenId } = formData;
 
             // Ensure bytes32 format for hash
-            // If user enters string, we might need to hash it or pad it. 
-            // Assuming user enters valid bytes32 or we format it.
-            // For simplicity, let's format a string to bytes32 if it's not.
             let formattedHash = documentHash;
             if (!documentHash.startsWith('0x')) {
                 formattedHash = ethers.id(documentHash); // Keccak256 hash of string
@@ -46,7 +98,8 @@ const Dashboard = () => {
             );
             await tx.wait();
             alert("Land Registered Successfully!");
-            setFormData({ landId: '', documentHash: '', datahavenId: '' });
+            setFormData({ landId: '', ownerDetails: '', documentHash: '0x0000000000000000000000000000000000000000000000000000000000000000', datahavenId: '' });
+            setSelectedFile(null);
         } catch (error) {
             console.error(error);
             alert("Registration failed: " + (error.reason || error.message));
@@ -126,11 +179,11 @@ const Dashboard = () => {
                         >
                             {isLoading ? 'Processing...' : 'Register Land'}
                         </button>
-                    </form>
-                </div>
+                    </form >
+                </div >
 
-                {/* Search Land Section */}
-                <div className="flex flex-col gap-8">
+    {/* Search Land Section */ }
+    < div className = "flex flex-col gap-8" >
                     <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
                         <div className="flex items-center gap-3 mb-6">
                             <Search className="text-indigo-600" size={28} />
@@ -158,10 +211,10 @@ const Dashboard = () => {
                             Use the search tool to verify ownership, view details, or check dispute status of any registered land asset.
                         </p>
                     </div>
-                </div>
+                </div >
 
-            </div>
-        </div>
+            </div >
+        </div >
     );
 };
 
